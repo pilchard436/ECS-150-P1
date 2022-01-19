@@ -22,6 +22,17 @@ enum{
     MISLOCATED_OUTPUT,
 };
 
+/* Swap characters*/
+void char_switch(char *cmd){
+    int cmd_len = strlen(cmd);
+    for(int i = 0;i < cmd_len; i++){
+        if(cmd[i] == '|' || cmd[i] == '&'){
+            cmd[i] = ' ';
+        }
+    }
+}
+
+/*Parsing Error Handling*/
 void error_message(int error){
 
     switch(error){
@@ -51,12 +62,14 @@ int splitStrtoArr(char *str, char *delimiter, char *dest[])
     dest[0] = arg;
     while (arg)
     {
-        while (arg[0] == ' ')
+        while (arg[0] == ' '){
             arg++;
+        }
         dest[count] = arg;
         count++;
         arg = strtok(NULL, delimiter);
     }
+    //printf("0:%s 1:%s\n", dest[0], dest[1]);
     return count;
 }
 
@@ -154,8 +167,7 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
             strcat(arg, strtok(NULL, " "));
         }
         argv[argc] = arg;
-// here we want to check if argc > 16, if so we break out of this function and somehow trigger the error message, then continue on top of main
-        argc++;
+        argc++; 
         arg = strtok(NULL, " ");
     }
 
@@ -211,7 +223,8 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
 
 int main(void)
 {
-    char cmd[CMDLINE_MAX], ocmd[CMDLINE_MAX];
+    char cmd[CMDLINE_MAX], ocmd[CMDLINE_MAX], temp_cmd[CMDLINE_MAX];
+    char *temp_cmds[17];
 
     while (1)
     {
@@ -275,19 +288,51 @@ int main(void)
             while (filename[0] == ' ')
                 filename++;
             cmd[outputPos - cmd] = '\0';
-            printf("filename: %s\n", filename);
         }
+        // Error: no command 
+        if (cmd == NULL || cmd[0] == '\n' || cmd[0] == '\0'){
+            error_message(ERR_MISSING_CMD);
+            continue;
+        }
+
+// check the total arg count. first replace all | and & with space, second count how many arg we have
+// if arg count is > 16 we break
+        strcpy(temp_cmd, cmd);
+        char_switch(temp_cmd);
+        int argc = splitStrtoArr(temp_cmd, " ", temp_cmds);
+        if (argc > N_ARG - 1){
+            error_message(TOO_MNY_PRC_ARGS);
+            continue;
+        }
+
         /* split command into piping */
         int cmdc = occur(cmd, '|') + 1;
         char *cmds[3];
         char *p_delim = "|";
 
         splitStrtoArr(cmd, p_delim, cmds);
-        // start pipe
+
+        // FIXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        // printf("0:%s\n1:%d\n", cmds[0], *cmds[1]);
+        // Error: no command 
+        // int missing_cmd_flag = 0;
+        // for (int i = 0; i < cmdc; i++){
+        //     // printf("%s\n",cmds[i]);
+        //     if (cmds[i] == NULL || cmds[i][0] == '\n' || cmds[i][0] == '\0'){
+        //         error_message(ERR_MISSING_CMD);
+        //         missing_cmd_flag = 1;
+        //         break;
+        //     }
+        // }
+
+        // if (missing_cmd_flag) continue;
+
         int fd1[2];
         int fd2[2];
         int fd3[2];
         int retarr[3];
+        int outSave = dup(STDOUT_FILENO);
+        int inSave = dup(STDIN_FILENO);
         pipe(fd1);
         pipe(fd2);
         pipe(fd3);
@@ -297,7 +342,7 @@ int main(void)
 
         if (fork() != 0)
         { /* Parent */
-
+ //process 1
             /* No need for read access */
             close(fd1[0]);
             /* Process[0] will write output onto pipe*/
@@ -317,7 +362,8 @@ int main(void)
             }
             if (fork() != 0)
             {
-                /* No need for write access to pipe 1 */
+ // process 2                
+ /* No need for write access to pipe 1 */
                 close(fd1[1]);
                 /* Process[1] will read from pipe */
                 dup2(fd1[0], STDIN_FILENO);
@@ -334,7 +380,7 @@ int main(void)
                 //FIX::
                 retarr[1] = execute_process(cmds[1], filename, output_redirect, error_redirect);
             }
-            else
+            else //process 3
             {
                 if (cmdc < 3)
                     exit(0);
@@ -375,10 +421,10 @@ int main(void)
             }
         }
 
-        if(retarr[0] == OUTOFRANGE || retarr[1] == OUTOFRANGE || retarr[2] == OUTOFRANGE || retarr[3] == OUTOFRANGE){
-            error_message(TOO_MNY_PRC_ARGS);
-            continue;
-        }
+        //restoring original macros
+        dup2(outSave,STDOUT_FILENO);
+        dup2(inSave,STDIN_FILENO);
+        // printf("This is to test stdout_fileno \n");
         
         if (cmdc == 1)
         {
