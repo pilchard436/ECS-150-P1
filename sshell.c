@@ -20,6 +20,8 @@ enum{
     NO_OUTPUT_FILE,
     CANNOT_OPEN_FILE,
     MISLOCATED_OUTPUT,
+    CANNOT_CD_INTO_DIR,
+    COMMAND_NOT_FOUND,
 };
 
 /* Swap characters*/
@@ -51,6 +53,12 @@ void error_message(int error){
         case MISLOCATED_OUTPUT:
             fprintf(stderr, "Error: mislocated output redirection\n");
             break;
+        case CANNOT_CD_INTO_DIR:
+            fprintf(stderr, "Error: cannot cd into directory\n");
+            break;
+        case COMMAND_NOT_FOUND:
+            fprintf(stderr, "Error: command not found\n");
+            break;    
     }
 
 }
@@ -70,7 +78,7 @@ char *trimspaces(char *str){
 
     // Trim trailing space
     end = str + strlen(str) - 1;
-    while (end > str && *end == ' ') {
+    while (*end == ' ') {
         end--;
     }
 
@@ -123,7 +131,7 @@ int cd(char *argv[]){
     {
         return 255;
     }
-    int e = chdir(argv[1]);
+    int e = chdir(argv[1]) ? 1 : 0;
     return e;
 }
 
@@ -189,8 +197,10 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
 
     if (!strcmp(argv[0], "exit"))
         exit_cmd(cmd);
-    else if (!strcmp(argv[0], "cd"))
+    else if (!strcmp(argv[0], "cd")){
         retval = cd(argv);
+        if (retval == 1) error_message(CANNOT_CD_INTO_DIR);
+    }
     else if (!strcmp(argv[0], "pwd"))
         retval = pwd(argv);
     else if (!strcmp(argv[0], "sls"))
@@ -204,10 +214,6 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
             if (filename)
             {
                 int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-                if (fd == -1){
-                    error_message(CANNOT_OPEN_FILE); 
-                    // need to stop executing current process, impossible in current implementation of pipe
-                }
                 if (output_redirect == 1) dup2(fd, STDOUT_FILENO);
                 if (error_redirect == 1) dup2(fd, STDERR_FILENO);
                 close(fd);
@@ -222,10 +228,15 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
         {
             // this is the parent
             waitpid(pid, &retval, 0);
-            retval = WEXITSTATUS(retval);
 
-            //Will be moved to the bottom of the code; after pipeline
-            //fprintf(stderr, "+ completed '%s' [%d]\n", ocmd, WEXITSTATUS(retval));
+            // check if the command exist. if the command doesn't exist, retval will be 65280
+            if (retval == 65280){
+                retval = 1;
+                error_message(COMMAND_NOT_FOUND);
+            }
+            else{
+            retval = WEXITSTATUS(retval);
+            }
         }
         else
         {
@@ -311,22 +322,18 @@ int main(void)
             }
 
             // Check if there is a | or |& in filename
-            if (strstr(filename, "|") != NULL ||strstr(filename, "|&") != NULL){
+            if (strstr(filename, "|") != NULL || strstr(filename, "|&") != NULL){
                 error_message(MISLOCATED_OUTPUT);
                 continue;
             }
 
             // Check if we can open the file
-            if (access(filename, F_OK) == 0){
-                FILE* f = fopen(filename, "r");
-                if (f == NULL){
-                    error_message(CANNOT_OPEN_FILE);
-                    continue;
-                }
-                fclose(f);
+            int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+            if (fd == -1){
+                error_message(CANNOT_OPEN_FILE); 
+                continue;
             }
-
-            printf("filename: %s\n", filename);
+            close(fd);
         }
 
 
@@ -372,7 +379,8 @@ int main(void)
         pipe(fd3);
         
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////// output redirect and error redirect needs to be checked here//////////////////////
 
         if (fork() != 0)
         { /* Parent */
