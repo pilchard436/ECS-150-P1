@@ -54,29 +54,45 @@ void error_message(int error){
     }
 
 }
-/* Split str by delimiter into dest*/
-int splitStrtoArr(char *str, char *delimiter, char *dest[])
-{
-    int count = 0;
-    char *arg = strtok(str, delimiter);
-    dest[0] = arg;
-    while (arg)
-    {
-        while (arg[0] == ' '){
-            arg++;
-        }
-        dest[count] = arg;
-        count++;
-        arg = strtok(NULL, delimiter);
+/* Trims leading and trailing spaces of a string */
+char *trimspaces(char *str){
+    char *end;
+
+    // Trim leading space
+    while (*str == ' ') {
+        str++;
     }
-    //printf("0:%s 1:%s\n", dest[0], dest[1]);
-    return count;
+
+    // At the end, return
+    if (*str == '\0') { 
+        return str;
+    }
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while (end > str && *end == ' ') {
+        end--;
+    }
+
+    // Write new null terminator character
+    end[1] = '\0';
+
+    return str;
+}
+
+/* Split str by delimiter into dest, return the count*/
+int splitStrtoArr(char *str, char *delimiter, char *dest[]){
+    int argc = 0;
+    char *token;
+    while((token = strsep(&str, delimiter)) != NULL){
+        dest[argc] = trimspaces(token);
+        argc++;
+    }
+    return argc;
 }
 
 /* Finds occurances in a str*/
-int occur(char *s, char c)
-{
-
+int occur(char *s, char c){
     int count = 0;
 
     for (int i = 0; s[i]; i++)
@@ -90,8 +106,7 @@ int occur(char *s, char c)
 }
 
 /* Built-in commands */
-int pwd(char *argv[])
-{
+int pwd(char *argv[]){
     if (argv[1])
     {
         return 255;
@@ -103,8 +118,7 @@ int pwd(char *argv[])
 }
 
 /* cd */
-int cd(char *argv[])
-{
+int cd(char *argv[]){
     if (!argv[1])
     {
         return 255;
@@ -114,16 +128,14 @@ int cd(char *argv[])
 }
 
 /* exit */
-void exit_cmd(char *cmd)
-{
+void exit_cmd(char *cmd){
     fprintf(stderr, "Bye...\n");
     fprintf(stderr, "+ completed '%s' [0]\n", cmd);
     exit(0);
 }
 
 /* sls */
-int sls()
-{
+int sls(){
 
     struct dirent *dp;
     struct stat sb;
@@ -144,8 +156,7 @@ int sls()
     return retval;
 }
 
-int execute_process(char *cmd, char *filename, int output_redirect, int error_redirect)
-{
+int execute_process(char *cmd, char *filename, int output_redirect, int error_redirect){
     /* Parse command into array argv */
     char pcmd[strlen(cmd)];
     char *argv[N_ARG];
@@ -193,6 +204,10 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
             if (filename)
             {
                 int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+                if (fd == -1){
+                    error_message(CANNOT_OPEN_FILE); 
+                    // need to stop executing current process, impossible in current implementation of pipe
+                }
                 if (output_redirect == 1) dup2(fd, STDOUT_FILENO);
                 if (error_redirect == 1) dup2(fd, STDERR_FILENO);
                 close(fd);
@@ -223,6 +238,7 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
 
 int main(void)
 {
+    // Initialize some variables 
     char cmd[CMDLINE_MAX], ocmd[CMDLINE_MAX], temp_cmd[CMDLINE_MAX];
     char *temp_cmds[17];
 
@@ -239,11 +255,12 @@ int main(void)
         /* Get command line */
         fgets(cmd, CMDLINE_MAX, stdin);
 
-
+        // If nothing is entered, do nothing
         if (!strcmp(cmd, "\n"))
         {
             continue;
         }
+
         /* Print command line if stdin is not provided by terminal */
         if (!isatty(STDIN_FILENO))
         {
@@ -262,7 +279,7 @@ int main(void)
         remove it and the filename after it and store it */
         char *filename = NULL;
         char *delim = NULL;
-        char *outputPos = NULL;
+        char *split_cmd_file[1];
 
         if (strstr(cmd, ">&") != NULL) {
             output_redirect = 1;
@@ -270,35 +287,54 @@ int main(void)
             delim = ">&";
             strcpy(cmd, ocmd);
         }
-        if (strstr(cmd, ">") != NULL){
+        else if (strstr(cmd, ">") != NULL){
             output_redirect = 1;
             delim = ">";
             strcpy(cmd, ocmd);
         }
+
         if (delim != NULL){
-            outputPos = strstr(cmd, delim);
+            splitStrtoArr(cmd, delim, split_cmd_file);
+            strcpy(cmd, split_cmd_file[0]);
+            filename = split_cmd_file[1];
+
+            // Error: no command // We need to check after we split out the filename whether there is a command
+            if (!strcmp(cmd, "")){
+                error_message(ERR_MISSING_CMD);
+                continue;
+            }
+
+            // Check if there is a filename
+            if (!strcmp(filename, "")){
+                error_message(NO_OUTPUT_FILE);
+                continue;
+            }
+
+            // Check if there is a | or |& in filename
+            if (strstr(filename, "|") != NULL ||strstr(filename, "|&") != NULL){
+                error_message(MISLOCATED_OUTPUT);
+                continue;
+            }
+
+            // Check if we can open the file
+            if (access(filename, F_OK) == 0){
+                FILE* f = fopen(filename, "r");
+                if (f == NULL){
+                    error_message(CANNOT_OPEN_FILE);
+                    continue;
+                }
+                fclose(f);
+            }
+
+            printf("filename: %s\n", filename);
         }
 
-        if (outputPos != NULL)
-        {
-            // user input an input file
-            
-            filename = outputPos + 1;
-            if(filename[0] == '&') filename++;
-            while (filename[0] == ' ')
-                filename++;
-            cmd[outputPos - cmd] = '\0';
-        }
-        // Error: no command 
-        if (cmd == NULL || cmd[0] == '\n' || cmd[0] == '\0'){
-            error_message(ERR_MISSING_CMD);
-            continue;
-        }
 
-// check the total arg count. first replace all | and & with space, second count how many arg we have
-// if arg count is > 16 we break
+
+        // check the total arg count. first replace all | and & with space, second count how many arg we have
+        // if arg count is > 16 we break
         strcpy(temp_cmd, cmd);
-        char_switch(temp_cmd);
+        char_switch(temp_cmd); // this replaces all | and & with spaces
         int argc = splitStrtoArr(temp_cmd, " ", temp_cmds);
         if (argc > N_ARG - 1){
             error_message(TOO_MNY_PRC_ARGS);
@@ -312,20 +348,18 @@ int main(void)
 
         splitStrtoArr(cmd, p_delim, cmds);
 
-        // FIXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        // printf("0:%s\n1:%d\n", cmds[0], *cmds[1]);
         // Error: no command 
-        // int missing_cmd_flag = 0;
-        // for (int i = 0; i < cmdc; i++){
-        //     // printf("%s\n",cmds[i]);
-        //     if (cmds[i] == NULL || cmds[i][0] == '\n' || cmds[i][0] == '\0'){
-        //         error_message(ERR_MISSING_CMD);
-        //         missing_cmd_flag = 1;
-        //         break;
-        //     }
-        // }
+        int missing_cmd_flag = 0;
+        for (int i = 0; i < cmdc; i++){
+            if (!strcmp(cmds[i], "")){
+                error_message(ERR_MISSING_CMD);
+                missing_cmd_flag = 1;
+                break;
+            }
+        }
+        if (missing_cmd_flag) continue;
 
-        // if (missing_cmd_flag) continue;
+        // Now we're ready to execute, but first create some pipes and file descriptors 
 
         int fd1[2];
         int fd2[2];
@@ -451,4 +485,5 @@ int main(void)
     }
 
 
-    /*Phase 2: https://stackoverflow.com/questions/11198604/c-split-string-into-an-array-of-strings */
+    // Split string into array:  https://c-for-dummies.com/blog/?p=1769
+    // Trimming whitespace: https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
