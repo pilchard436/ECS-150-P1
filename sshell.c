@@ -14,7 +14,8 @@
 #define OUTOFRANGE 255
 #define N_ARG 17
 
-enum{
+enum
+{
     TOO_MNY_PRC_ARGS,
     ERR_MISSING_CMD,
     NO_OUTPUT_FILE,
@@ -25,60 +26,88 @@ enum{
 };
 
 /* Swap characters*/
-void char_switch(char *cmd){
+void char_switch(char *cmd)
+{
     int cmd_len = strlen(cmd);
-    for(int i = 0;i < cmd_len; i++){
-        if(cmd[i] == '|' || cmd[i] == '&'){
+    for (int i = 0; i < cmd_len; i++)
+    {
+        if (cmd[i] == '|' || cmd[i] == '&')
+        {
             cmd[i] = ' ';
         }
     }
 }
 
-/*Parsing Error Handling*/
-void error_message(int error){
-
-    switch(error){
-        case TOO_MNY_PRC_ARGS:
-            fprintf(stderr, "Error: too many process arguments\n");
+/* Completed Status Handling*/
+void completed_process(int arg_num, char* cmd, int retarr[])
+{
+    switch (arg_num)
+    {
+        case 1:
+            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retarr[0]);
             break;
-        case ERR_MISSING_CMD:
-            fprintf(stderr, "Error: missing command\n");
+        case 2:
+            fprintf(stderr, "+ completed '%s' [%d][%d]\n", cmd, retarr[0], retarr[1]);
             break;
-        case NO_OUTPUT_FILE:
-            fprintf(stderr, "Error: no output file\n");
+        case 3:
+            fprintf(stderr, "+ completed '%s' [%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2]);
             break;
-        case CANNOT_OPEN_FILE:
-            fprintf(stderr, "Error: cannot open output file\n");
+        case 4:
+            fprintf(stderr, "+ completed '%s' [%d][%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2], retarr[3]);
             break;
-        case MISLOCATED_OUTPUT:
-            fprintf(stderr, "Error: mislocated output redirection\n");
-            break;
-        case CANNOT_CD_INTO_DIR:
-            fprintf(stderr, "Error: cannot cd into directory\n");
-            break;
-        case COMMAND_NOT_FOUND:
-            fprintf(stderr, "Error: command not found\n");
-            break;    
     }
+}
 
+/*Parsing Error Handling*/
+void error_message(int error)
+{
+
+    switch (error)
+    {
+    case TOO_MNY_PRC_ARGS:
+        fprintf(stderr, "Error: too many process arguments\n");
+        break;
+    case ERR_MISSING_CMD:
+        fprintf(stderr, "Error: missing command\n");
+        break;
+    case NO_OUTPUT_FILE:
+        fprintf(stderr, "Error: no output file\n");
+        break;
+    case CANNOT_OPEN_FILE:
+        fprintf(stderr, "Error: cannot open output file\n");
+        break;
+    case MISLOCATED_OUTPUT:
+        fprintf(stderr, "Error: mislocated output redirection\n");
+        break;
+    case CANNOT_CD_INTO_DIR:
+        fprintf(stderr, "Error: cannot cd into directory\n");
+        break;
+    case COMMAND_NOT_FOUND:
+        fprintf(stderr, "Error: command not found\n");
+        break;
+    }
 }
 /* Trims leading and trailing spaces of a string */
-char *trimspaces(char *str){
+char *trimspaces(char *str)
+{
     char *end;
 
     // Trim leading space
-    while (*str == ' ') {
+    while (*str == ' ')
+    {
         str++;
     }
 
     // At the end, return
-    if (*str == '\0') { 
+    if (*str == '\0')
+    {
         return str;
     }
 
     // Trim trailing space
     end = str + strlen(str) - 1;
-    while (*end == ' ') {
+    while (end > str && *end == ' ')
+    {
         end--;
     }
 
@@ -89,18 +118,22 @@ char *trimspaces(char *str){
 }
 
 /* Split str by delimiter into dest, return the count*/
-int splitStrtoArr(char *str, char *delimiter, char *dest[]){
+int splitStrtoArr(char *str, char *delimiter, char *dest[])
+{
     int argc = 0;
     char *token;
-    while((token = strsep(&str, delimiter)) != NULL){
-        dest[argc] = trimspaces(token);
+    while ((token = strsep(&str, delimiter)) != NULL)
+    {
+        token = trimspaces(token);
+        dest[argc] = token;
         argc++;
     }
     return argc;
 }
 
 /* Finds occurances in a str*/
-int occur(char *s, char c){
+int occur(char *s, char c)
+{
     int count = 0;
 
     for (int i = 0; s[i]; i++)
@@ -114,7 +147,8 @@ int occur(char *s, char c){
 }
 
 /* Built-in commands */
-int pwd(char *argv[]){
+int pwd(char *argv[])
+{
     if (argv[1])
     {
         return 255;
@@ -126,7 +160,8 @@ int pwd(char *argv[]){
 }
 
 /* cd */
-int cd(char *argv[]){
+int cd(char *argv[])
+{
     if (!argv[1])
     {
         return 255;
@@ -136,14 +171,16 @@ int cd(char *argv[]){
 }
 
 /* exit */
-void exit_cmd(char *cmd){
+void exit_cmd(char *cmd)
+{
     fprintf(stderr, "Bye...\n");
     fprintf(stderr, "+ completed '%s' [0]\n", cmd);
     exit(0);
 }
 
 /* sls */
-int sls(){
+int sls()
+{
 
     struct dirent *dp;
     struct stat sb;
@@ -164,44 +201,12 @@ int sls(){
     return retval;
 }
 
-int execute_process(char *cmd, char *filename, int output_redirect, int error_redirect){
-    /* Parse command into array argv */
-    char pcmd[strlen(cmd)];
-    char *argv[N_ARG];
-    int argc = 0;
-    strcpy(pcmd, cmd); // copy cmd into another variable ocmd
-    // put each arg into array, each arg is seperated by white spaces
-    char *arg = strtok(pcmd, " ");
-    // if an argument ends with '\ ', then this argument should be concatenated with the next argument together
-    if (arg[strlen(arg) - 1] == '\\')
-    {
-        arg[strlen(arg) - 1] = ' ';
-        strcat(arg, strtok(NULL, " "));
-    }
-    while (arg)
-    {
-        if (arg[strlen(arg) - 1] == '\\')
-        {
-            arg[strlen(arg) - 1] = ' ';
-            strcat(arg, strtok(NULL, " "));
-        }
-        argv[argc] = arg;
-        argc++; 
-        arg = strtok(NULL, " ");
-    }
-
-
-    argv[argc] = NULL;
+int execute_process(char *argv[])
+{
     /* System() -> fork + exec + wait */
     int retval;
 
-    if (!strcmp(argv[0], "exit"))
-        exit_cmd(cmd);
-    else if (!strcmp(argv[0], "cd")){
-        retval = cd(argv);
-        if (retval == 1) error_message(CANNOT_CD_INTO_DIR);
-    }
-    else if (!strcmp(argv[0], "pwd"))
+    if (!strcmp(argv[0], "pwd"))
         retval = pwd(argv);
     else if (!strcmp(argv[0], "sls"))
         retval = sls();
@@ -210,33 +215,14 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
         pid_t pid = fork();
         if (pid == 0)
         {
-            // this is the child
-            if (filename)
-            {
-                int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-                if (output_redirect == 1) dup2(fd, STDOUT_FILENO);
-                if (error_redirect == 1) dup2(fd, STDERR_FILENO);
-                close(fd);
-            }
             retval = execvp(argv[0], argv);
-            fclose(stdout);
-            fclose(stderr);
-
             exit(retval);
         }
         else if (pid > 0)
         {
             // this is the parent
             waitpid(pid, &retval, 0);
-
-            // check if the command exist. if the command doesn't exist, retval will be 65280
-            if (retval == 65280){
-                retval = 1;
-                error_message(COMMAND_NOT_FOUND);
-            }
-            else{
             retval = WEXITSTATUS(retval);
-            }
         }
         else
         {
@@ -249,15 +235,15 @@ int execute_process(char *cmd, char *filename, int output_redirect, int error_re
 
 int main(void)
 {
-    // Initialize some variables 
+    // Initialize some variables
     char cmd[CMDLINE_MAX], ocmd[CMDLINE_MAX], temp_cmd[CMDLINE_MAX];
     char *temp_cmds[17];
 
     while (1)
     {
         char *nl;
-        int output_redirect = 0;
-        int error_redirect = 0;
+        int stdout_redirect = 0;
+        int stderr_redirect = 0;
 
         /* Print prompt */
         printf("sshell$ ");
@@ -291,59 +277,71 @@ int main(void)
         char *filename = NULL;
         char *delim = NULL;
         char *split_cmd_file[1];
-
-        if (strstr(cmd, ">&") != NULL) {
-            output_redirect = 1;
-            error_redirect = 1;
-            delim = ">&";
+        
+       
+        if (strstr(cmd, ">&") != NULL)
+        {
+            stdout_redirect = 1;
+            stderr_redirect = 1;
+            delim = ">";
             strcpy(cmd, ocmd);
         }
-        else if (strstr(cmd, ">") != NULL){
-            output_redirect = 1;
+        else if (strstr(cmd, ">") != NULL)
+        {
+            stdout_redirect = 1;
             delim = ">";
             strcpy(cmd, ocmd);
         }
 
-        if (delim != NULL){
+        if (delim != NULL)
+        {
             splitStrtoArr(cmd, delim, split_cmd_file);
             strcpy(cmd, split_cmd_file[0]);
             filename = split_cmd_file[1];
+            if (stderr_redirect){
+                while (filename[0] == '&' || filename[0] == ' '){
+                    filename++;
+                } 
+            }
 
             // Error: no command // We need to check after we split out the filename whether there is a command
-            if (!strcmp(cmd, "")){
+            if (!strcmp(cmd, ""))
+            {
                 error_message(ERR_MISSING_CMD);
                 continue;
             }
 
             // Check if there is a filename
-            if (!strcmp(filename, "")){
+            if (!strcmp(filename, ""))
+            {
                 error_message(NO_OUTPUT_FILE);
                 continue;
             }
 
             // Check if there is a | or |& in filename
-            if (strstr(filename, "|") != NULL || strstr(filename, "|&") != NULL){
+            if (strstr(filename, "|") != NULL || strstr(filename, "|&") != NULL)
+            {
                 error_message(MISLOCATED_OUTPUT);
                 continue;
             }
 
             // Check if we can open the file
-            int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-            if (fd == -1){
-                error_message(CANNOT_OPEN_FILE); 
+            int testfile = open(filename, O_WRONLY | O_CREAT, 0644);
+            if (testfile == -1)
+            {
+                error_message(CANNOT_OPEN_FILE);
                 continue;
             }
-            close(fd);
+            close(testfile);
         }
-
-
 
         // check the total arg count. first replace all | and & with space, second count how many arg we have
         // if arg count is > 16 we break
         strcpy(temp_cmd, cmd);
         char_switch(temp_cmd); // this replaces all | and & with spaces
         int argc = splitStrtoArr(temp_cmd, " ", temp_cmds);
-        if (argc > N_ARG - 1){
+        if (argc > N_ARG - 1)
+        {
             error_message(TOO_MNY_PRC_ARGS);
             continue;
         }
@@ -355,143 +353,120 @@ int main(void)
 
         splitStrtoArr(cmd, p_delim, cmds);
 
-        // Error: no command 
+        // Error: no command
         int missing_cmd_flag = 0;
-        for (int i = 0; i < cmdc; i++){
-            if (!strcmp(cmds[i], "")){
+        for (int i = 0; i < cmdc; i++)
+        {
+            if (!strcmp(cmds[i], ""))
+            {
                 error_message(ERR_MISSING_CMD);
                 missing_cmd_flag = 1;
                 break;
             }
         }
-        if (missing_cmd_flag) continue;
+        if (missing_cmd_flag)
+            continue;
 
-        // Now we're ready to execute, but first create some pipes and file descriptors 
-
-        int fd1[2];
-        int fd2[2];
-        int fd3[2];
+        // Now we're ready to execute, but first create some pipes and file descriptors
+        pid_t pid;
+        int fd[2];
         int retarr[3];
-        int outSave = dup(STDOUT_FILENO);
-        int inSave = dup(STDIN_FILENO);
-        pipe(fd1);
-        pipe(fd2);
-        pipe(fd3);
-        
+        int OrigStdout = dup(STDOUT_FILENO);
+        int OrigStdin = dup(STDIN_FILENO);
+        int OrigStderr = dup(STDERR_FILENO);
+        int TempStdin = dup(STDIN_FILENO);
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////// output redirect and error redirect needs to be checked here//////////////////////
 
-        if (fork() != 0)
-        { /* Parent */
- //process 1
-            /* No need for read access */
-            close(fd1[0]);
-            /* Process[0] will write output onto pipe*/
-            if (cmdc > 1)
-                dup2(fd1[1], STDOUT_FILENO);
-            /* Close now unused FD */
-            close(fd1[1]);
-            /* Parent becomes process[0] */
-            //FIX::
-            retarr[0] = execute_process(cmds[0], filename, output_redirect, error_redirect);
-        }
-        else
-        { /* Child */
-            if (cmdc < 2)
+        for (int i = 0; i < cmdc; i++){
+            char *argv[N_ARG];
+            int retval;
+            int argc = splitStrtoArr(cmds[i], " ", argv);
+            argv[argc] = NULL;
+
+            pipe(fd); 
+
+            /* Builtin command is detected, can not be piped */
+
+            if (!strcmp(argv[0], "exit"))
+                exit_cmd(cmd);
+            else if (!strcmp(argv[0], "cd"))
             {
-                exit(0);
+                retval = cd(argv);
+                if (retval == 1){
+                    error_message(CANNOT_CD_INTO_DIR);
+                }
+                continue;
             }
-            if (fork() != 0)
-            {
- // process 2                
- /* No need for write access to pipe 1 */
-                close(fd1[1]);
-                /* Process[1] will read from pipe */
-                dup2(fd1[0], STDIN_FILENO);
 
-                /*Process[1] must write onto next pipe */
-                if (cmdc > 2)
-                    dup2(fd2[1], STDOUT_FILENO);
-
-                /* Close now unused FD */
-                close(fd1[0]);
-                close(fd2[1]);
-                /* Child becomes process[1] */
-
-                //FIX::
-                retarr[1] = execute_process(cmds[1], filename, output_redirect, error_redirect);
-            }
-            else //process 3
-            {
-                if (cmdc < 3)
-                    exit(0);
-
-                if (fork() != 0)
+            pid = fork();
+            if (pid != 0){
+                // this is the parent
+                waitpid(pid, &retval, 0);
+                close(fd[1]);
+                TempStdin = fd[0];
+                close(fd[0]);
+                // check if the command exist. if the command doesn't exist, retval will be 65280
+                if (retval == 65280)
                 {
-                    /*No need for write access to pipe 2 */
-                    close(fd2[1]);
-
-                    /*Process[2] will read from pipe 2 */
-                    dup2(fd2[0], STDIN_FILENO);
-
-                    close(fd2[0]);
-                    close(fd3[1]);
-                    /*This will be process[2] */
-                    //FIX::
-
-                    retarr[2] = execute_process(cmds[2], filename, output_redirect, error_redirect);
+                    retval = 1;
+                    error_message(COMMAND_NOT_FOUND);
                 }
                 else
                 {
-                    if (cmdc < 4)
-                        exit(0);
+                    retval = WEXITSTATUS(retval);
+                }
+                retarr[i] = retval;
+            }
+            else if (pid == 0)
+            {
+            // this is the child
 
-                    /*No need for write access to pipe 2 */
-                    close(fd3[1]);
+                /* checking input logic */             
+                dup2(TempStdin, STDIN_FILENO);
+                close(TempStdin);
 
-                    /*Process[2] will read from pipe 2 */
-                    dup2(fd3[0], STDIN_FILENO);
+            
 
-                    close(fd3[0]);
+                 
+                /* checking output logic */
+                //Checks to see if there is more then one process (cmds)
+                if (cmdc > 1 && i != (cmdc - 1)){
 
-                    /*This will be process[2] */
-
-                    retarr[3] = execute_process(cmds[3], filename, output_redirect, error_redirect);
+                    dup2(fd[1], STDOUT_FILENO);
+                    close(fd[1]);
+                }
+                // output to stdout, no piping 
+                else if((stdout_redirect == 0) && ( !(cmdc > 1) || (i == (cmdc - 1)))){
+                    //printf("else if: %d", i);
+                    dup2(OrigStdout, STDOUT_FILENO);
+                    close(fd[1]);
+                }
+                // redirect stdout and/or stderr if it's the last command 
+                // and if we need to redirect
+                else{
+                    int outputfile = open(filename, O_WRONLY | O_CREAT, 0644);
+                    dup2(outputfile, STDOUT_FILENO);
+                    if (stderr_redirect == 1)
+                        dup2(outputfile, STDERR_FILENO);
+                    close(outputfile);
                     
                 }
-            }
-        }
+                //if only one pipe reset Stdout
+                retval = execute_process(argv);
+                exit(retval);
+            }            
 
-        //restoring original macros
-        dup2(outSave,STDOUT_FILENO);
-        dup2(inSave,STDIN_FILENO);
-        // printf("This is to test stdout_fileno \n");
+        } // end for loop
         
-        if (cmdc == 1)
-        {
-            fprintf(stderr, "+ completed '%s' [%d]\n", ocmd, retarr[0]);
-        }
-        else if (cmdc == 2)
-        {
-            fprintf(stderr, "+ completed '%s' [%d][%d]\n",
-                    ocmd, retarr[0], retarr[1]);
-        }
-        else if (cmdc == 3)
-        {
-            fprintf(stderr, "+ completed '%s' [%d][%d][%d]\n",
-                    ocmd, retarr[0], retarr[1], retarr[2]);
-        }
-        else if (cmdc == 4)
-        {
-            fprintf(stderr, "+ completed '%s' [%d][%d][%d][%d]\n",
-                    ocmd, retarr[0], retarr[1], retarr[2], retarr[3]);
-        }
+        // restore original file descriptors 
+        dup2(OrigStdin, STDIN_FILENO);
+        dup2(OrigStdout, STDOUT_FILENO);
+        dup2(OrigStderr, STDERR_FILENO);
+        close(fd[0]);
 
-            //return EXIT_SUCCESS;
-        }
-    }
+        completed_process(cmdc, ocmd, retarr);
+    } // end while
+}
 
-
-    // Split string into array:  https://c-for-dummies.com/blog/?p=1769
-    // Trimming whitespace: https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+// Split string into array:  https://c-for-dummies.com/blog/?p=1769
+// Trimming whitespace: https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
