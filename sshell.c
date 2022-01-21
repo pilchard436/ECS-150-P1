@@ -40,22 +40,22 @@ void char_switch(char *cmd)
 }
 
 /* Completed Status Handling*/
-void completed_process(int arg_num, char* cmd, int retarr[])
+void completed_process(int arg_num, char *cmd, int retarr[])
 {
     switch (arg_num)
     {
-        case 1:
-            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retarr[0]);
-            break;
-        case 2:
-            fprintf(stderr, "+ completed '%s' [%d][%d]\n", cmd, retarr[0], retarr[1]);
-            break;
-        case 3:
-            fprintf(stderr, "+ completed '%s' [%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2]);
-            break;
-        case 4:
-            fprintf(stderr, "+ completed '%s' [%d][%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2], retarr[3]);
-            break;
+    case 1:
+        fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retarr[0]);
+        break;
+    case 2:
+        fprintf(stderr, "+ completed '%s' [%d][%d]\n", cmd, retarr[0], retarr[1]);
+        break;
+    case 3:
+        fprintf(stderr, "+ completed '%s' [%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2]);
+        break;
+    case 4:
+        fprintf(stderr, "+ completed '%s' [%d][%d][%d][%d]\n", cmd, retarr[0], retarr[1], retarr[2], retarr[3]);
+        break;
     }
 }
 
@@ -128,7 +128,8 @@ int splitStrtoArr(char *str, char *delimiter, char *dest[])
     while ((token = strsep(&str, delimiter)) != NULL)
     {
         token = trimspaces(token);
-        if (!strcmp(token, "")){
+        if (!strcmp(token, ""))
+        {
             continue;
         }
         dest[argc] = token;
@@ -214,9 +215,11 @@ int execute_process(char *argv[])
 
     if (!strcmp(argv[0], "pwd"))
         retval = pwd(argv);
-    else if (!strcmp(argv[0], "sls")){
+    else if (!strcmp(argv[0], "sls"))
+    {
         retval = sls();
-        if (retval == 1){
+        if (retval == 1)
+        {
             error_message(CANNOT_OPEN_DIR);
         }
     }
@@ -287,8 +290,7 @@ int main(void)
         char *filename = NULL;
         char *delim = NULL;
         char *split_cmd_file[1];
-        
-       
+
         if (strstr(cmd, ">&") != NULL)
         {
             stdout_redirect = 1;
@@ -308,10 +310,12 @@ int main(void)
             splitStrtoArr(cmd, delim, split_cmd_file);
             strcpy(cmd, split_cmd_file[0]);
             filename = split_cmd_file[1];
-            if (stderr_redirect){
-                while (filename[0] == '&' || filename[0] == ' '){
+            if (stderr_redirect)
+            {
+                while (filename[0] == '&' || filename[0] == ' ')
+                {
                     filename++;
-                } 
+                }
             }
 
             // Error: no command // We need to check after we split out the filename whether there is a command
@@ -365,16 +369,20 @@ int main(void)
 
         // Error piping
         int error_piping[3];
-        for (int i = 1; i < cmdc; i++){
+        for (int i = 1; i < cmdc; i++)
+        {
             // strcpy(temp_cmd, cmds[i]);
-            if (cmds[i][0] == '&'){
+            if (cmds[i][0] == '&')
+            {
                 error_piping[i - 1] = 1;
                 cmds[i]++;
-                while (cmds[i][0] == ' '){
+                while (cmds[i][0] == ' ')
+                {
                     cmds[i]++;
-                } 
+                }
             }
-            else{
+            else
+            {
                 error_piping[i - 1] = 0;
             }
         }
@@ -405,14 +413,14 @@ int main(void)
         int OrigStderr = dup(STDERR_FILENO);
         int TempStdin = dup(STDIN_FILENO);
 
-
-        for (int i = 0; i < cmdc; i++){
+        for (int i = 0; i < cmdc; i++)
+        {
             char *argv[N_ARG];
             int retval;
             int argc = splitStrtoArr(cmds[i], " ", argv);
             argv[argc] = NULL;
 
-            pipe(fd); 
+            pipe(fd);
 
             /* Builtin command is detected, can not be piped */
 
@@ -421,18 +429,19 @@ int main(void)
             else if (!strcmp(argv[0], "cd"))
             {
                 retval = cd(argv);
-                if (retval == 1){
+                if (retval == 1)
+                {
                     error_message(CANNOT_CD_INTO_DIR);
                 }
                 continue;
             }
 
             pid = fork();
-            if (pid != 0){
+            if (pid != 0)
+            {
                 // this is the parent
                 waitpid(pid, &retval, 0);
                 close(fd[1]);
-                // TempStdin = fd[0]; // this does not work!!!!!!!! 
                 dup2(fd[0], TempStdin);
                 close(fd[0]);
                 // check if the command exist. if the command doesn't exist, retval will be 65280
@@ -449,34 +458,36 @@ int main(void)
             }
             else if (pid == 0)
             {
-            // this is the child
+                // this is the child
 
-                /* checking input logic */             
+                /* checking input logic */
                 dup2(TempStdin, STDIN_FILENO);
                 close(TempStdin);
                 close(fd[0]);
 
                 /* checking output logic */
                 // output to pipe
-                if (cmdc > 1 && i != (cmdc - 1)){
-                    if (error_piping[i] == 1){
-                        // fprintf(stderr, "%d\n", i);
+                if (cmdc > 1 && i != (cmdc - 1))
+                {
+                    if (error_piping[i] == 1)
+                    {
                         dup2(fd[1], STDERR_FILENO);
                     }
                     dup2(fd[1], STDOUT_FILENO);
-                    
+
                     close(fd[1]);
                 }
-                // output to stdout and stderr, no piping 
-                else if((stdout_redirect == 0) && ( !(cmdc > 1) || (i == (cmdc - 1)))){
-
+                // output to stdout and stderr, no piping
+                else if ((stdout_redirect == 0) && (!(cmdc > 1) || (i == (cmdc - 1))))
+                {
                     dup2(OrigStdout, STDOUT_FILENO);
                     dup2(OrigStderr, STDERR_FILENO);
                     close(fd[1]);
                 }
-                // if there is a file, redirect stdout and/or stderr 
-                // if it's the last command 
-                else{
+                // if there is a file, redirect stdout and/or stderr
+                // if it's the last command
+                else
+                {
                     int outputfile = open(filename, O_WRONLY | O_CREAT, 0644);
                     dup2(outputfile, STDOUT_FILENO);
                     if (stderr_redirect == 1)
@@ -487,11 +498,11 @@ int main(void)
                 //if only one pipe reset Stdout
                 retval = execute_process(argv);
                 exit(retval);
-            }            
+            }
 
         } // end for loop
-        
-        // restore original file descriptors 
+
+        // restore original file descriptors
         dup2(OrigStdin, STDIN_FILENO);
         dup2(OrigStdout, STDOUT_FILENO);
         dup2(OrigStderr, STDERR_FILENO);
