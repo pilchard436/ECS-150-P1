@@ -151,8 +151,8 @@ Function `completed_process()` retrieves the command and exit status `retval`
 of the completed proccess and prints the finished statment with exit status 
 onto `stderr`. 
 
-Function `char_switch()` goes through command and finds occurances of `|` or `&`.
-If found, it performs a swap of characters and switches those for spaces.
+Function `char_switch()` goes through command and finds occurances of `|` or 
+`&`. If found, it performs a swap of characters and switches those for spaces.
 
 Function `occur()` goes through the entirety of the string to find occurances 
 of a specific character and keeps track of amount when detected.
@@ -161,5 +161,18 @@ Function `execute_process()` first check if the process being asked to execute
 is a built-in function. Otherwise, it forks itself and the parent waits for 
 the child to return an exit status. The child execute the command. 
 
+## References:
+1. Split string into array:  https://c-for-dummies.com/blog/?p=1769
+2. Trimming whitespace: https://stackoverflow.com/questions/122616/
+how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+3. Pipe implementation: https://stackoverflow.com/questions/60804552/
+pipe-two-or-more-shell-commands-in-c-using-a-loop
+4. forking and waiting: https://stackoverflow.com/questions/13654315/two-
+forks-and-the-use-of-wait
+5. Ignoring hidden files: https://stackoverflow.com/questions/845556/
+how-to-ignore-hidden-files-with-opendir-and-readdir-in-c-library
+6. CWD info: https://stackoverflow.com/questions/59983516/
+what-does-signify-in-c-as-argument-to-opendir
+
 ### Authors:
-Created by Jeffery Chang and Sergio Santoyo
+Created by Jeffery Zhang and Sergio Santoyo

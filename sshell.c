@@ -513,5 +513,3 @@ int main(void)
     } // end while
 }
 
-// Split string into array:  https://c-for-dummies.com/blog/?p=1769
-// Trimming whitespace: https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
