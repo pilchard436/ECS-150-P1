@@ -173,6 +173,8 @@ forks-and-the-use-of-wait
 how-to-ignore-hidden-files-with-opendir-and-readdir-in-c-library
 6. CWD info: https://stackoverflow.com/questions/59983516/
 what-does-signify-in-c-as-argument-to-opendir
+7. GNUC Libary: https://www.gnu.org/software/libc/manual/html_mono/libc.
+html#Running-a-Command
 
 ### Authors:
 Created by Jeffery Zhang and Sergio Santoyo
