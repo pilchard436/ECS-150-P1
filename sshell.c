@@ -23,6 +23,7 @@ enum
     MISLOCATED_OUTPUT,
     CANNOT_CD_INTO_DIR,
     COMMAND_NOT_FOUND,
+    CANNOT_OPEN_DIR,
 };
 
 /* Swap characters*/
@@ -61,7 +62,6 @@ void completed_process(int arg_num, char* cmd, int retarr[])
 /*Parsing Error Handling*/
 void error_message(int error)
 {
-
     switch (error)
     {
     case TOO_MNY_PRC_ARGS:
@@ -85,6 +85,9 @@ void error_message(int error)
     case COMMAND_NOT_FOUND:
         fprintf(stderr, "Error: command not found\n");
         break;
+    case CANNOT_OPEN_DIR:
+        fprintf(stderr, "Error: cannot open directory\n");
+        break;
     }
 }
 /* Trims leading and trailing spaces of a string */
@@ -98,7 +101,7 @@ char *trimspaces(char *str)
         str++;
     }
 
-    // At the end, return
+    // Str is at the end, return
     if (*str == '\0')
     {
         return str;
@@ -106,13 +109,13 @@ char *trimspaces(char *str)
 
     // Trim trailing space
     end = str + strlen(str) - 1;
-    while (end > str && *end == ' ')
+    while (*end == ' ')
     {
         end--;
     }
 
-    // Write new null terminator character
-    end[1] = '\0';
+    // Write \0 at the end
+    *(end + 1) = '\0';
 
     return str;
 }
@@ -125,6 +128,9 @@ int splitStrtoArr(char *str, char *delimiter, char *dest[])
     while ((token = strsep(&str, delimiter)) != NULL)
     {
         token = trimspaces(token);
+        if (!strcmp(token, "")){
+            continue;
+        }
         dest[argc] = token;
         argc++;
     }
@@ -208,8 +214,12 @@ int execute_process(char *argv[])
 
     if (!strcmp(argv[0], "pwd"))
         retval = pwd(argv);
-    else if (!strcmp(argv[0], "sls"))
+    else if (!strcmp(argv[0], "sls")){
         retval = sls();
+        if (retval == 1){
+            error_message(CANNOT_OPEN_DIR);
+        }
+    }
     else
     {
         pid_t pid = fork();
@@ -353,6 +363,25 @@ int main(void)
 
         splitStrtoArr(cmd, p_delim, cmds);
 
+        // Error piping
+        int error_piping[3];
+        for (int i = 1; i < cmdc; i++){
+            // strcpy(temp_cmd, cmds[i]);
+            if (cmds[i][0] == '&'){
+                error_piping[i - 1] = 1;
+                cmds[i]++;
+                while (cmds[i][0] == ' '){
+                    cmds[i]++;
+                } 
+            }
+            else{
+                error_piping[i - 1] = 0;
+            }
+        }
+        error_piping[cmdc - 1] = 0;
+
+        // printf("0: %d\n1: %d\n", error_piping[0], error_piping[1]);
+
         // Error: no command
         int missing_cmd_flag = 0;
         for (int i = 0; i < cmdc; i++)
@@ -403,7 +432,8 @@ int main(void)
                 // this is the parent
                 waitpid(pid, &retval, 0);
                 close(fd[1]);
-                TempStdin = fd[0];
+                // TempStdin = fd[0]; // this does not work!!!!!!!! 
+                dup2(fd[0], TempStdin);
                 close(fd[0]);
                 // check if the command exist. if the command doesn't exist, retval will be 65280
                 if (retval == 65280)
@@ -424,32 +454,35 @@ int main(void)
                 /* checking input logic */             
                 dup2(TempStdin, STDIN_FILENO);
                 close(TempStdin);
+                close(fd[0]);
 
-            
-
-                 
                 /* checking output logic */
-                //Checks to see if there is more then one process (cmds)
+                // output to pipe
                 if (cmdc > 1 && i != (cmdc - 1)){
-
+                    if (error_piping[i] == 1){
+                        // fprintf(stderr, "%d\n", i);
+                        dup2(fd[1], STDERR_FILENO);
+                    }
                     dup2(fd[1], STDOUT_FILENO);
+                    
                     close(fd[1]);
                 }
-                // output to stdout, no piping 
+                // output to stdout and stderr, no piping 
                 else if((stdout_redirect == 0) && ( !(cmdc > 1) || (i == (cmdc - 1)))){
-                    //printf("else if: %d", i);
+
                     dup2(OrigStdout, STDOUT_FILENO);
+                    dup2(OrigStderr, STDERR_FILENO);
                     close(fd[1]);
                 }
-                // redirect stdout and/or stderr if it's the last command 
-                // and if we need to redirect
+                // if there is a file, redirect stdout and/or stderr 
+                // if it's the last command 
                 else{
                     int outputfile = open(filename, O_WRONLY | O_CREAT, 0644);
                     dup2(outputfile, STDOUT_FILENO);
                     if (stderr_redirect == 1)
                         dup2(outputfile, STDERR_FILENO);
                     close(outputfile);
-                    
+                    close(fd[1]);
                 }
                 //if only one pipe reset Stdout
                 retval = execute_process(argv);
@@ -462,6 +495,7 @@ int main(void)
         dup2(OrigStdin, STDIN_FILENO);
         dup2(OrigStdout, STDOUT_FILENO);
         dup2(OrigStderr, STDERR_FILENO);
+        close(fd[1]);
         close(fd[0]);
 
         completed_process(cmdc, ocmd, retarr);
